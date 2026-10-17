@@ -1,0 +1,99 @@
+# 新闻爬取工作流：每小时抓取 15 家新闻站的 RSS / 新闻 sitemap，
+# 把新增 URL 追加进 data/*_urls.json，并提交回 main 分支。
+name: 新闻爬取
+
+on:
+  # 每小时整点（UTC）自动运行一次
+  schedule:
+    - cron: '0 * * * *'
+  # 支持在 Actions 页面手动触发，便于调试或临时补抓
+  workflow_dispatch:
+
+# 需要写权限：本工作流会 commit 并 push 新抓到的 URL
+permissions:
+  contents: write
+
+# 同一时间只允许一个采集任务在跑；后来者排队而非取消，
+# 避免两个任务同时改写 data/*.json 造成互相覆盖
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # 使用 GitHub 托管的 Ubuntu 最新镜像
+    runs-on: ubuntu-latest
+    # 15 个站点串行抓取，留 45 分钟上限，防止单个请求卡死占满默认 6 小时
+    timeout-minutes: 45
+    steps:
+      # 1. 拉取仓库代码。fetch-depth: 0 表示拉全量历史，
+      #    浅克隆会导致后面的 git pull --rebase 失败
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # 2. 安装 Python 3.12（脚本用到 dict[str, dict]、X | None 等新语法）
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 3. 安装运行依赖：feedparser 解析 RSS，requests 发送 HTTP 请求
+      - run: pip install feedparser requests
+
+      # 4. 执行采集：输出同时打印到 Actions 日志并落入 logs/ 文件
+      - name: Collect URLs
+        run: |
+          # 管道里任一命令失败则整体失败，防止 tee 把 python 的退出码吞成 0
+          set -o pipefail
+          mkdir -p logs
+          # 文件名带 UTC 时间戳，避免多次运行互相覆盖
+          log="logs/update-$(date -u +%Y%m%dT%H%M%SZ).log"
+          echo "log file: $log"
+          # 2>&1 把 stderr（各站 warning）一并收进日志
+          python top_news.py update 2>&1 | tee "$log"
+
+      # 5. 把日志写进本次运行的 Summary 页面；失败时也执行
+      - name: Write run summary
+        if: always()
+        run: |
+          # 取最新的日志文件；没有日志就直接结束，避免 job 二次报错
+          log=$(ls -t logs/*.log 2>/dev/null | head -n 1)
+          if [ -z "$log" ]; then
+            echo "no log produced" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # 用代码块包裹，保持表格的等宽对齐
+          {
+            echo "## 采集日志"
+            echo ""
+            echo '```'
+            cat "$log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 6. 日志作为构建产物上传，保留 14 天；失败时也上传
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # 带 run_attempt，re-run 时不会与已有同名 artifact 冲突
+          name: update-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: logs/*.log
+          retention-days: 14
+          # 万一没产生日志，只告警，不让 job 失败
+          if-no-files-found: warn
+
+      # 7. 提交新增的 URL；采集步骤失败时本步骤不会执行
+      - name: Commit and push URL additions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 只暂存 URL 数组与 README（采集后计数已同步），不带入日志等临时产物
+          git add -- data/*_urls.json README.md
+          # 没有新增内容就直接结束，不产生空提交
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update news URLs"
+          # 先 rebase 远端最新提交，避免 non-fast-forward 导致 push 被拒
+          git pull --rebase origin main
+          git push origin HEAD:main
