@@ -3,24 +3,24 @@
 一个每小时运行一次的新闻 URL 采集器，覆盖 15 个新闻源。URL 数组保存在 Git 仓库的 `data/` 目录下，每行一条 URL，方便后续采集时通过 diff 直接看出新增内容。Dataverse 上的全文发布版本属于历史存档。
 
 ## 数据
-更新时间 2026-10-19 07:00:46
-各数组位于 `data/` 目录，每行一条 URL。下表为当前实测数量，合计 **1,012,600** 条。
+更新时间 2026-10-19 09:07:49
+各数组位于 `data/` 目录，每行一条 URL。下表为当前实测数量，合计 **1,012,698** 条。
 
 | 文件 | URL 数 |
 |---|---:|
-| `abc_urls.json` | 243,007 |
-| `aljazeera_urls.json` | 3,182 |
-| `bbc_urls.json` | 470 |
-| `cbs_urls.json` | 161,263 |
-| `cnn_urls.json` | 42,777 |
-| `dw_urls.json` | 1,195 |
-| `guardian_urls.json` | 4,142 |
-| `lat_urls.json` | 76,886 |
-| `nbc_urls.json` | 99,814 |
+| `abc_urls.json` | 243,022 |
+| `aljazeera_urls.json` | 3,186 |
+| `bbc_urls.json` | 472 |
+| `cbs_urls.json` | 161,280 |
+| `cnn_urls.json` | 42,782 |
+| `dw_urls.json` | 1,196 |
+| `guardian_urls.json` | 4,148 |
+| `lat_urls.json` | 76,889 |
+| `nbc_urls.json` | 99,820 |
 | `npr_urls.json` | 68,551 |
-| `nyt_urls.json` | 133,770 |
+| `nyt_urls.json` | 133,774 |
 | `politico_urls.json` | 13,946 |
 | `propub_urls.json` | 2,404 |
-| `usat_urls.json` | 65,960 |
+| `usat_urls.json` | 65,995 |
 | `wapo_urls.json` | 95,233 |
-| **合计** | **1,012,600** |
+| **合计** | **1,012,698** |
